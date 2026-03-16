@@ -1,11 +1,12 @@
+import os
+# FORCE CPU-only mode: Hide any ghost GPUs from PyTorch/Ultralytics
+# This must be set before any other imports that might initialize torch
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import gradio as gr
 from ultralytics import RTDETR
 from PIL import Image
 import numpy as np
-import os
-
-# FORCE CPU-only mode: Hide any ghost GPUs from PyTorch/Ultralytics
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # Load the model directly on CPU
 model_path = 'best.pt'
