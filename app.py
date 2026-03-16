@@ -4,22 +4,59 @@ from PIL import Image
 import numpy as np
 import os
 
-# FORCE CPU-only mode: Hide any ghost GPUs from PyTorch/Ultralytics
+# FORCE CPU-only mode
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-# Load your trained RT-DETR model
-# We load it directly like the working Fish Tracking app
+# Load model
 model = RTDETR('best.pt')
 model.to('cpu')
 
-def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
+# Localization strings
+I18N = {
+    "cz": {
+        "title": "🐟 Najdi svého Karase",
+        "subtitle": "Identifikace druhů pomocí RT-DETR",
+        "description": "Nahrajte fotografii ryby a zjistěte, zda se jedná o **Karase obecného** nebo **Karase stříbřitého**.",
+        "input_label": "📤 Nahrát obrázek",
+        "conf_label": "Práh spolehlivosti",
+        "conf_info": "Vyšší = přesnější (ale méně detekcí)",
+        "iou_label": "Práh překryvu (IoU)",
+        "btn_label": "🔍 Identifikovat druh",
+        "output_label": "🎯 Výsledky detekce",
+        "summary_label": "📊 Výsledek",
+        "no_fish": "ℹ️ **V obrázku nebyl detekován žádný karas.**",
+        "detected_prefix": "## 🐟 Výsledek identifikace\n\n",
+        "detected_suffix": " nalezen!",
+        "footer": "### 📋 Jak používat:\n1. **Nahrajte obrázek** s karasem.\n2. Klikněte na **\"Identifikovat druh\"**.\n3. Aplikace označí rybu v obrázku a potvrdí druh pod ním.",
+        "lang_toggle": "Language / Jazyk"
+    },
+    "en": {
+        "title": "🐟 Find Your Karas",
+        "subtitle": "Species Identification powered by RT-DETR",
+        "description": "Upload a fish photo to identify if it is a **Karas obecný** (Crucian Carp) or **Karas stříbřitý** (Prussian Carp).",
+        "input_label": "📤 Upload Image",
+        "conf_label": "Confidence Threshold",
+        "conf_info": "Higher = more precise (but fewer detections)",
+        "iou_label": "IoU Threshold",
+        "btn_label": "🔍 Identify Species",
+        "output_label": "🎯 Detection Results",
+        "summary_label": "📊 Analysis Output",
+        "no_fish": "ℹ️ **No Karas detected in the image.**",
+        "detected_prefix": "## 🐟 Identification Results\n\n",
+        "detected_suffix": " detected!",
+        "footer": "### 📋 How to Use:\n1. **Upload an image** containing fish.\n2. Click **\"Identify Species\"**.\n3. View the highlighted fish and species confirmation below.",
+        "lang_toggle": "Language / Jazyk"
+    }
+}
+
+def predict_species(image, lang, conf_threshold=0.7, iou_threshold=0.45):
     """
-    Run RT-DETR inference on an image to identify Karas species
+    Run RT-DETR inference and return localized results
     """
     if image is None:
-        return None, "Please upload an image."
+        return None, ""
     
-    # Run prediction explicitly on CPU
+    # Run prediction
     results = model.predict(
         source=image,
         conf=conf_threshold,
@@ -29,96 +66,81 @@ def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
         verbose=False
     )
     
-    # Get the first result
     result = results[0]
+    plotted_img_rgb = result.plot()[..., ::-1]
     
-    # Plot results on image
-    plotted_img = result.plot()
-    
-    # Convert BGR to RGB
-    plotted_img_rgb = plotted_img[..., ::-1]
-    
-    # Extract detection information
-    boxes = result.boxes
-    species_counts = {}
-    
-    if boxes is not None:
-        for box in boxes:
+    # Extract unique species detected
+    detected_species = set()
+    if result.boxes is not None:
+        for box in result.boxes:
             class_id = int(box.cls[0])
-            class_name = result.names[class_id]
-            species_counts[class_name] = species_counts.get(class_name, 0) + 1
+            detected_species.add(result.names[class_id])
     
-    if not species_counts:
-        return plotted_img_rgb, "ℹ️ **No fish detected in the image.**"
+    lang_key = "cz" if lang == "Czech / Čeština" else "en"
     
-    # Format a nice species summary
-    summary = "## 🐟 Identification Results\n\n"
+    if not detected_species:
+        return plotted_img_rgb, I18N[lang_key]["no_fish"]
     
-    # Check for specific Karas species based on your model classes
-    # Assuming classes are 'karas obecny' and 'karas stribrity'
-    for species, count in species_counts.items():
-        icon = "🐠" if "stříbřitý" in species.lower() else "🐟"
-        summary += f"### {icon} {species}: **{count}** detected\n"
-    
-    summary += "\n---\n*Identification powered by RT-DETR*"
+    # Format summary without counts
+    summary = I18N[lang_key]["detected_prefix"]
+    for species in sorted(list(detected_species)):
+        icon = "🐠" if "stříbř" in species.lower() or "prussian" in species.lower() else "🐟"
+        summary += f"### {icon} {species}{I18N[lang_key]['detected_suffix']}\n"
     
     return plotted_img_rgb, summary
 
-# Create Gradio interface mirroring the Fish Tracking style but simplified
-# Using theme=gr.themes.Soft() as in the working app
-with gr.Blocks(title="Find Your Karas (RT-DETR)", theme=gr.themes.Soft()) as demo:
-    gr.Markdown(
-        """
-        # 🐟 Find Your Karas
-        ### Species Identification powered by RT-DETR
-        
-        Upload an image of fish to automatically identify and count **Karas obecný** and **Karas stříbřitý**.
-        """
+def update_ui(lang):
+    """Update UI labels based on language selection"""
+    lang_key = "cz" if lang == "Czech / Čeština" else "en"
+    texts = I18N[lang_key]
+    return (
+        gr.update(value=f"# {texts['title']}\n### {texts['subtitle']}\n{texts['description']}"),
+        gr.update(label=texts["input_label"]),
+        gr.update(label=texts["conf_label"], info=texts["conf_info"]),
+        gr.update(label=texts["iou_label"]),
+        gr.update(value=texts["btn_label"]),
+        gr.update(label=texts["output_label"]),
+        gr.update(label=texts["summary_label"]),
+        gr.update(value=f"---\n{texts['footer']}\n---")
     )
+
+with gr.Blocks(title="Find Your Karas", theme=gr.themes.Soft()) as demo:
+    with gr.Row():
+        lang_selector = gr.Radio(
+            choices=["Czech / Čeština", "English"],
+            value="Czech / Čeština",
+            label="Language / Jazyk",
+            interactive=True
+        )
+    
+    header = gr.Markdown(f"# {I18N['cz']['title']}\n### {I18N['cz']['subtitle']}\n{I18N['cz']['description']}")
     
     with gr.Row():
         with gr.Column():
-            input_image = gr.Image(type="pil", label="📤 Upload Image")
+            input_image = gr.Image(type="pil", label=I18N["cz"]["input_label"])
             
-            with gr.Accordion("⚙️ Advanced Settings", open=False):
-                conf_slider = gr.Slider(
-                    minimum=0.1,
-                    maximum=0.9,
-                    value=0.25,
-                    step=0.05,
-                    label="Confidence Threshold",
-                    info="Lower = more detections (but more false positives)"
-                )
-                iou_slider = gr.Slider(
-                    minimum=0.1,
-                    maximum=0.9,
-                    value=0.45,
-                    step=0.05,
-                    label="IoU Threshold (NMS)",
-                    info="Cleanup overlapping boxes"
-                )
+            with gr.Accordion("⚙️ Advanced / Pokročilé", open=False):
+                conf_slider = gr.Slider(0.1, 0.95, value=0.7, step=0.05, label=I18N["cz"]["conf_label"])
+                iou_slider = gr.Slider(0.1, 0.9, value=0.45, step=0.05, label=I18N["cz"]["iou_label"])
             
-            predict_btn = gr.Button("🔍 Identify Species", variant="primary", size="lg")
+            predict_btn = gr.Button(I18N["cz"]["btn_label"], variant="primary", size="lg")
         
         with gr.Column():
-            output_image = gr.Image(type="numpy", label="🎯 Detection Results")
-            output_text = gr.Markdown(label="📊 Analysis Output")
+            output_image = gr.Image(type="numpy", label=I18N["cz"]["output_label"])
+            output_text = gr.Markdown(label=I18N["cz"]["summary_label"])
     
-    gr.Markdown(
-        """
-        ---
-        ### 📋 How to Use:
-        1. **Upload an image** containing Karas fish.
-        2. Click **"Identify Species"**.
-        3. View the highlighted fish and the count for each species below the image.
-        
-        ---
-        """
+    footer = gr.Markdown(f"---\n{I18N['cz']['footer']}\n---")
+    
+    # Event listeners
+    lang_selector.change(
+        update_ui, 
+        inputs=[lang_selector], 
+        outputs=[header, input_image, conf_slider, iou_slider, predict_btn, output_image, output_text, footer]
     )
     
     predict_btn.click(
         fn=predict_species,
-        inputs=[input_image, conf_slider, iou_slider],
+        inputs=[input_image, lang_selector, conf_slider, iou_slider],
         outputs=[output_image, output_text]
     )
 
