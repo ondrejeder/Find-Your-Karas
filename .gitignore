@@ -1,0 +1,14 @@
+# Training data and results
+Training/
+runs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
