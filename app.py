@@ -126,4 +126,4 @@ with gr.Blocks(title="Find Your Karas (RT-DETR)", theme=gr.themes.Soft()) as dem
     )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)
