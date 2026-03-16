@@ -1,11 +1,11 @@
+import os
+# Hard-enforce CPU-only mode before ANY other imports (like torch/ultralytics)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import gradio as gr
 from ultralytics import RTDETR
 from PIL import Image
 import numpy as np
-import os
-
-# Set environment variable to avoid CUDA issues
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # Global model variable
 _model = None
