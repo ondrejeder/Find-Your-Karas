@@ -4,6 +4,9 @@ from PIL import Image
 import numpy as np
 import os
 
+# FORCE CPU-only mode: Hide any ghost GPUs from PyTorch/Ultralytics
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 # Load the model directly on CPU
 model_path = 'best.pt'
 model = None
