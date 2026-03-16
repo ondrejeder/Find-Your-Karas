@@ -8,16 +8,22 @@ from ultralytics import RTDETR
 from PIL import Image
 import numpy as np
 
-# Load the model directly on CPU
-model_path = 'best.pt'
+# Global model variable
 model = None
-if os.path.exists(model_path):
-    try:
-        # Load specifying cpu device
-        model = RTDETR(model_path)
-        model.to('cpu')
-    except Exception as e:
-        print(f"Error loading model: {e}")
+
+def get_model():
+    global model
+    if model is None:
+        model_path = 'best.pt'
+        if os.path.exists(model_path):
+            try:
+                # Load specifying cpu device
+                print("--- Loading Model (CPU) ---")
+                model = RTDETR(model_path)
+                model.to('cpu')
+            except Exception as e:
+                print(f"Error loading model: {e}")
+    return model
 
 def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
     """
@@ -26,17 +32,18 @@ def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
     if image is None:
         return None, "Please upload an image."
     
-    if model is None:
+    current_model = get_model()
+    if current_model is None:
         return np.array(image), "⚠️ **Model file (best.pt) not found.**"
     
     # Run prediction explicitly on CPU
     try:
-        results = model.predict(
+        results = current_model.predict(
             source=image,
             conf=conf_threshold,
             iou=iou_threshold,
             imgsz=640,
-            device='cpu',  # Force CPU to avoid CUDA errors on free tier
+            device='cpu',  # Hard-enforce CPU
             verbose=False
         )
     except Exception as e:
