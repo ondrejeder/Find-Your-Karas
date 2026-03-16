@@ -4,47 +4,35 @@ from PIL import Image
 import numpy as np
 import os
 
-# Try to import spaces for HF GPU support, but keep it optional for local use
-try:
-    import spaces
-    has_spaces = True
-except ImportError:
-    has_spaces = False
-
-# Load the model
-# Note: Ensure best.pt is present in the directory after training
+# Load the model directly on CPU
 model_path = 'best.pt'
 model = None
 if os.path.exists(model_path):
     try:
+        # Load specifying cpu device
         model = RTDETR(model_path)
+        model.to('cpu')
     except Exception as e:
         print(f"Error loading model: {e}")
 
-def gpu_decorator(func):
-    if has_spaces:
-        return spaces.GPU(func)
-    return func
-
-@gpu_decorator
 def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
     """
-    Run RT-DETR inference on an image to identify Karas species
+    Run RT-DETR inference on an image to identify Karas species (CPU Optimized)
     """
     if image is None:
         return None, "Please upload an image."
     
     if model is None:
-        # If model failed to load or file missing
-        return np.array(image), "⚠️ **Model file (best.pt) not found or could not be loaded.** Please train the model and place it in the application folder."
+        return np.array(image), "⚠️ **Model file (best.pt) not found.**"
     
-    # Run prediction
+    # Run prediction explicitly on CPU
     try:
         results = model.predict(
             source=image,
             conf=conf_threshold,
             iou=iou_threshold,
             imgsz=640,
+            device='cpu',  # Force CPU to avoid CUDA errors on free tier
             verbose=False
         )
     except Exception as e:
