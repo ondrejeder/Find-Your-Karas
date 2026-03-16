@@ -7,10 +7,19 @@ import os
 # Set environment variable to avoid CUDA issues
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-# Load model (direct load like the Fish Tracking app)
-model_path = 'best.pt'
-model = RTDETR(model_path)
-model.to('cpu')
+# Global model variable
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        try:
+            print("--- Loading Model (CPU) ---")
+            _model = RTDETR('best.pt')
+            _model.to('cpu')
+        except Exception as e:
+            print(f"Error loading model: {e}")
+    return _model
 
 def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
     """
@@ -18,6 +27,11 @@ def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
     """
     if image is None:
         return None, "Please upload an image."
+    
+    # Lazy load only when identification is clicked
+    model = get_model()
+    if model is None:
+        return np.array(image), "⚠️ **Model file (best.pt) not found.**"
     
     # Run prediction
     try:
@@ -31,6 +45,7 @@ def predict_species(image, conf_threshold=0.25, iou_threshold=0.45):
         )
     except Exception as e:
         return np.array(image), f"❌ **Error during inference:** {str(e)}"
+
     
     # Get the first result
     result = results[0]
