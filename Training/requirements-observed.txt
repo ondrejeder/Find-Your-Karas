@@ -1,0 +1,10 @@
+# Versions observed in the original Windows training venv on 22.10.2026.
+# This is a provenance record, not a portable pip lockfile.
+# The two PyTorch builds came from the CUDA 12.8 nightly channel.
+ultralytics==8.4.22
+torch==2.12.0.dev20260315+cu128
+torchvision==0.26.0.dev20260315+cu128
+onnx==1.21.0
+onnxslim==0.1.91
+numpy==2.2.6
+opencv-python==4.13.0.92

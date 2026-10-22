@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['karas-obecny', 'karas-stribrity']
+
+roboflow:
+  workspace: ispa-ryby
+  project: karas-v2
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/ispa-ryby/karas-v2/dataset/2

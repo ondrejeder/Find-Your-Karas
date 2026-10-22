@@ -1,5 +1,16 @@
 # Training data and results
-Training/
+Training/*
+!Training/train.py
+!Training/data.yaml
+!Training/README.md
+!Training/README.dataset.txt
+!Training/README.roboflow.txt
+!Training/requirements-observed.txt
+!Training/dataset v1/
+!Training/dataset v2/
+!Training/dataset v3 800x800/
+Training/dataset */*
+!Training/dataset */data.yaml
 runs/
 
 # Python
